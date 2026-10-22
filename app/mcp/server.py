@@ -1,4 +1,17 @@
-"""Model Context Protocol (MCP) server for GitHub operations."""
+"""Model Context Protocol (MCP) Server for GitHub Operations.
+
+This module initializes the official Model Context Protocol server using the Python MCP SDK
+(`mcp.server.mcpserver.MCPServer`). It exposes 22 comprehensive tools allowing AI agents
+(such as Claude Desktop, Cursor, or custom autonomous agents) to inspect, manage, and
+automate GitHub workflows, repositories, branches, issues, pull requests, files, and searches.
+
+Key features:
+1. Native MCP tool registration using the `@mcp_server.tool()` decorator.
+2. Full async execution delegating to the unified `GitHubService` business logic.
+3. Automated audit logging of every tool call with latency measurement, parameter
+   sanitization, and error tracking.
+4. Destructive operation protections (e.g., repository deletion requires explicit confirmation).
+"""
 import time
 from typing import Any, Dict, List, Literal, Optional
 
@@ -8,12 +21,17 @@ from app.config import get_settings
 from app.services.audit import get_audit_service
 from app.services.github_service import get_github_service
 
+# Load global application configuration
 settings = get_settings()
 
+# Initialize the central MCP server instance
 mcp_server = MCPServer(
     name=settings.MCP_SERVER_NAME,
     version=settings.MCP_SERVER_VERSION,
-    instructions="Comprehensive GitHub Operations MCP Server allowing management of repositories, branches, pull requests, issues, commits, files, workflows, and search.",
+    instructions=(
+        "Comprehensive GitHub Operations MCP Server allowing management of repositories, "
+        "branches, pull requests, issues, commits, files, workflows, and search."
+    ),
 )
 
 
@@ -25,6 +43,16 @@ def _record_audit(
     summary: Optional[str] = None,
     err_msg: Optional[str] = None,
 ):
+    """Helper utility to measure duration and log MCP tool execution to the audit service.
+
+    Args:
+        op_name: Name of the executed MCP tool.
+        params: Arguments supplied by the calling MCP client.
+        start_time: High-precision timestamp when execution began (from time.perf_counter()).
+        status: Either 'success' or 'error'.
+        summary: Optional summary of the result for quick human inspection.
+        err_msg: Optional error description if an exception was caught.
+    """
     audit = get_audit_service()
     duration_ms = (time.perf_counter() - start_time) * 1000
     audit.record(

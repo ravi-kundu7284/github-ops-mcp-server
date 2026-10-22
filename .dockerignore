@@ -15,3 +15,4 @@ htmlcov/
 .env.local
 *.log
 tests/
+

@@ -1,3 +1,14 @@
+# GitHub Actions Continuous Integration & Continuous Deployment (CI/CD) Workflow
+# Repository: github-ops-mcp-server
+#
+# Triggers:
+# 1. On every push to the `main` branch.
+# 2. On pull requests targeting `main`.
+#
+# Pipeline stages:
+# - Stage 1 (test): Checks code quality with Ruff, runs Pytest test suite, and validates MCP tool registration.
+# - Stage 2 (docker-build): Builds and verifies the multi-stage Docker image once tests pass on main.
+
 name: Backend CI/CD Pipeline
 
 on:
@@ -7,37 +18,49 @@ on:
     branches: [main]
 
 jobs:
+  # -------------------------------------------------------------------------
+  # Job 1: Test & Quality Checks
+  # -------------------------------------------------------------------------
   test:
     name: Lint, Test & Validate MCP Server
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository source code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Step 2: Configure Python 3.12 environment with pip caching
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
+      # Step 3: Install production and development dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # Step 4: Run Ruff fast static analysis and linting checks
       - name: Code formatting and lint check (Ruff)
         run: |
           ruff check app tests
 
+      # Step 5: Execute automated unit and API integration test suite
       - name: Run unit and API tests (Pytest)
         run: |
           pytest -v --maxfail=1
 
+      # Step 6: Verify all 22 required MCP tools are successfully registered in MCP server
       - name: Validate MCP Tools Registration
         run: |
-          python -c "import asyncio; from app.mcp.server import mcp_server; tools = asyncio.run(mcp_server.list_tools()); assert len(tools) == 22, f'Expected 22 tools, got {len(tools)}'; print('Verified 22 MCP tools registered successfully')"
+          python -c "import asyncio; from app.mcp.server import mcp_server; tools = asyncio.run(mcp_server.list_tools()); assert len(tools) == 22, f'Expected 22 tools, got {len(tools)}'; print(f'Successfully verified {len(tools)} MCP tools registered')"
 
+  # -------------------------------------------------------------------------
+  # Job 2: Container Image Build Verification
+  # -------------------------------------------------------------------------
   docker-build:
     name: Build & Verify Docker Image
     needs: test
@@ -51,6 +74,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Build multi-stage Docker container to ensure production build succeeds
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
